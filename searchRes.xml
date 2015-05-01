@@ -1,0 +1,14 @@
+
+  <?xml version="1.0" encoding="UTF-8"?>
+  <root>
+    <Peer/Root>
+      <UploadDirectory>
+        Demo.cpp
+        Demo.h
+        Executive.cpp
+        XmlDocument.cpp
+        XmlDocument.h
+        test.txt
+      </UploadDirectory>
+    </Peer/Root>
+  </root>
