@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|Win32">
       <Configuration>Debug</Configuration>
@@ -19,13 +19,13 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v120</PlatformToolset>
+    <PlatformToolset>v140</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
@@ -80,6 +80,7 @@
     <ClCompile Include="Message.cpp" />
     <ClCompile Include="MockChannel.cpp" />
     <ClCompile Include="Peer.cpp" />
+    <ClCompile Include="RegisteredCommunicators.cpp" />
     <ClCompile Include="Sockets.cpp" />
     <ClCompile Include="Tokenizer.cpp" />
     <ClCompile Include="Utilities.cpp" />
@@ -106,6 +107,7 @@
     <ClInclude Include="Communication.h" />
     <ClInclude Include="MockChannel.h" />
     <ClInclude Include="Peer.h" />
+    <ClInclude Include="RegisteredCommunicators.h" />
     <ClInclude Include="Sockets.h" />
     <ClInclude Include="Tokenizer.h" />
     <ClInclude Include="Utilities.h" />

@@ -68,10 +68,11 @@ using namespace System::Threading::Tasks;
 using namespace System::Windows::Threading;
 using namespace System::ComponentModel;
 using namespace System::Diagnostics;
-
+using namespace cli;
 #include "../MockChannel/MockChannel.h"
 #include <iostream>
 #include <chrono>
+
 
 namespace CppCliWindows
 {

@@ -27,11 +27,15 @@ void Dispatcher::start()
 			try
 			{
 				IMessage *msg = recvr->getMessage();
-				ReqHandler reqHandler = lookUp[msg->getCommand()];
+				//ReqHandler reqHandler = lookUp[msg->getCommand()];
+				RegisteredCommunicator *reqHandler = lookUp[msg->getCommand()];
 				if (msg->getCommand() == "dispatcher_stop")
 					break;
-				else
-					reqHandler(msg, sender);
+				else {
+					if (reqHandler == nullptr)
+						Verbose::show("\nComnunicator not found! Error! Service not available\n");
+					reqHandler->handleRequest(msg, sender);
+				}
 			}
 			catch (std::exception& ex)
 			{
@@ -48,331 +52,333 @@ void Dispatcher::start()
 
 Dispatcher::Dispatcher()
 {
-	ReqHandler req = fileUpload;
-	lookUp["file_upload"] = fileUpload;
-	lookUp["get_dir"] = sendDirectories;
-	lookUp["file_download"] = fileDownload;
-	lookUp["search_file"] = searchFile;
-	lookUp["search_text"] = searchText;
-	lookUp["xml_search_text"] = xmlSearchText;
-	lookUp["xml_search_file"] = xmlSearchFile;
+//	ReqHandler req = fileUpload;
+	lookUp["file_upload"] = new FileUploader;
+	lookUp["file_upload"] = new FileUploader;
+	lookUp["get_dir"] = new SendDirectoryStructure;
+	lookUp["file_download"] = new FileDownload;
+	lookUp["search_file"] = new SearchFile;
+	lookUp["search_text"] = new SearchText;
+	lookUp["xml_search_text"] = new XmlSearchText;
+	lookUp["xml_search_file"] = new XmlSearchFile;
 }
 
-//----------< File Upload Communicator >-------------
-void fileUpload(IMessage *msg, Sender* send)
-{
-	string s = "\n  File " + msg->getValue() + " received successfully from ";
-	s = s + msg->getSendIP() + " " + msg->getSendPort();
-	s = s + "\n  Stored in Peer/DownloadDirectory";
-	Verbose::show(s);
-	IMessage *m = new Message();
-	m->constructMessage("ack_file_upload", msg->getValue(), msg->getSendIP(), stoi(msg->getSendPort()), msg->getRecvIP(), stoi(msg->getRecvPort()));
-	m->setBody("null");
-	m->setTime(msg->getTime());
-	send->postMessage(m);
-}
-
-//----------< File Download Communicator >-------------
-void fileDownload(IMessage *msg, Sender *send)
-{
-	IMessage *m = new Message();
-	m->constructMessage("file_upload", msg->getValue(), msg->getSendIP(), stoi(msg->getSendPort()), msg->getRecvIP(), stoi(msg->getRecvPort()));
-	m->setBody("null");
-	m->setTime("0");
-	send->postMessage(m);
-}
-
-//----------< Send Directories Communicator >-------------
-void sendDirectories(IMessage *msg, Sender* send)
-{
-	using HighResolutionClock = chrono::high_resolution_clock;
-	HighResolutionClock::time_point t1 = HighResolutionClock::now();
-
-	DataStore ds;
-	FileMgr fm("Peer/Root", ds);
-
-	string body = "";
-	fm.search(true);
-	for (auto path : ds.getPaths())
-	{
-		body += "<dir>" + path;
-		body += "@";
-	}
-	for (auto fs : ds)
-	{
-		std::string file = fs.first;
-		std::cout << "\n  " << file;
-		DataStore::PathCollection pc = ds.getPaths(file);
-		for (auto path : pc)
-		{
-			body += path + "\\" + fs.first;
-			body += "@";
-		}
-	}
-	HighResolutionClock::time_point t2 = HighResolutionClock::now();
-	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-
-	IMessage *m = new Message();
-	m->constructMessage("ack_get_dir", msg->getValue(), msg->getSendIP(), stoi(msg->getSendPort()), msg->getRecvIP(), stoi(msg->getRecvPort()));
-	m->setBody(body);
-	m->setTime(to_string(duration));
-	send->postMessage(m);
-}
-
-//----------< File Search Communicator >-------------
-void searchFile(IMessage *msg, Sender *send)
-{
-	using HighResolutionClock = chrono::high_resolution_clock;
-	HighResolutionClock::time_point t1 = HighResolutionClock::now();
-	vector<string> results;
-	Catalog cat("Peer/Root");
-	string body = msg->getBody();
-	string pattern = "";
-	bool flag = false;
-	for (unsigned int i = 0; i < body.size(); i++)
-	{
-		if (body[i] == '#')
-		{
-			flag = true;
-			cat.addPattern(pattern);
-			pattern = "";
-			continue;
-		}
-		pattern += body[i];
-	}
-	if (flag == false)
-		cat.addPattern(pattern);
-	cat.buildCatalog(true);
-	body = "";
-	for (auto item : cat.getFiles())
-	{
-		size_t pos = item.find(msg->getValue());
-		if (pos != string::npos)
-		{
-			body += item + "@";
-		}
-	}
-	if (body == "")
-		body = "No Results Found!@";
-	HighResolutionClock::time_point t2 = HighResolutionClock::now();
-	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-	IMessage *m = new Message();
-	m->constructMessage("ack_search_file", msg->getValue(), msg->getSendIP(), stoi(msg->getSendPort()), msg->getRecvIP(), stoi(msg->getRecvPort()));
-	m->setBody(body);
-	m->setTime(to_string(duration));
-	send->postMessage(m);
-}
-
-//----------< File Search XML Results Communicator >-------------
-void xmlSearchFile(IMessage *msg, Sender *send)
-{
-	using HighResolutionClock = chrono::high_resolution_clock;
-	HighResolutionClock::time_point t1 = HighResolutionClock::now();
-	vector<string> results;
-	Catalog cat("Peer/Root");
-	string body = msg->getBody();
-	string pattern = "";
-	bool flag = false;
-	for (unsigned int i = 0; i < body.size(); i++)
-	{
-		if (body[i] == '#')
-		{
-			flag = true;
-			cat.addPattern(pattern);
-			pattern = "";
-			continue;
-		}
-		pattern += body[i];
-	}
-	if (flag == false)
-		cat.addPattern(pattern);
-	cat.buildCatalog(true);
-
-	body = "";
-	XmlDocument searchResult = buildXmlFile(cat.getFiles(), msg);
-	
-	searchResult.toFile("searchRes.xml");
-
-	HighResolutionClock::time_point t2 = HighResolutionClock::now();
-	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-
-	IMessage *m = new Message();
-	m->constructMessage("file_upload", "searchRes.xml", msg->getSendIP(), stoi(msg->getSendPort()), msg->getRecvIP(), stoi(msg->getRecvPort()));
-	m->setBody(body);
-	m->setTime(to_string(duration));
-	send->postMessage(m);
-}
-
-//----------< Text Search Communicator >-------------
-void searchText(IMessage *msg, Sender *send)
-{
-	using HighResolutionClock = chrono::high_resolution_clock;
-	HighResolutionClock::time_point t1 = HighResolutionClock::now();
-
-	vector<string> results;
-	Catalog cat("Peer/Root");
-	string body = msg->getBody();
-	string pattern = "";
-	bool flag = false;
-	for (unsigned int i = 0; i < body.size(); i++)
-	{
-		if (body[i] == '#')
-		{
-			flag = true;
-			cat.addPattern(pattern);
-			pattern = "";
-			continue;
-		}
-		pattern += body[i];
-
-	}
-	if (flag==false)
-		cat.addPattern(pattern);
-	cat.buildCatalog(true);
-	results = cat.getSearchResults(msg->getValue());
-	body = "";
-	for (auto item : results)
-	{
-		body += item + "@";
-	}
-	if (body == "")
-		body = "No Results Found!@";
-
-	HighResolutionClock::time_point t2 = HighResolutionClock::now();
-	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-
-	IMessage *m = new Message();
-	m->constructMessage("ack_search_text", msg->getValue(), msg->getSendIP(), stoi(msg->getSendPort()), msg->getRecvIP(), stoi(msg->getRecvPort()));
-	m->setBody(body);
-	m->setTime(to_string(duration));
-	send->postMessage(m);
-}
-
-//----------< Text Search Xml Results Communicator >-------------
-void xmlSearchText(IMessage *msg, Sender *send)
-{
-	using HighResolutionClock = chrono::high_resolution_clock;
-	HighResolutionClock::time_point t1 = HighResolutionClock::now();
-	vector<string> results;
-	Catalog cat("Peer/Root");
-	string body = msg->getBody();
-	string pattern = "";
-	bool flag = false;
-	for (unsigned int i = 0; i < body.size(); i++)
-	{
-		if (body[i] == '#')
-		{
-			flag = true;
-			cat.addPattern(pattern);
-			pattern = "";
-			continue;
-		}
-		pattern += body[i];
-
-	}
-	if (flag == false)
-		cat.addPattern(pattern);
-	cat.buildCatalog(true);
-	results = cat.getSearchResults(msg->getValue());
-	body = "";
-	XmlDocument xmlResult = buildXmlText(results);
-	xmlResult.toFile("searchRes.xml");
-	HighResolutionClock::time_point t2 = HighResolutionClock::now();
-	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
-	IMessage *m = new Message();
-	m->constructMessage("file_upload", "searchRes.xml", msg->getSendIP(), stoi(msg->getSendPort()), msg->getRecvIP(), stoi(msg->getRecvPort()));
-	m->setBody(body);
-	m->setTime(to_string(duration));
-	send->postMessage(m);
-}
-
-//----------< Text Search Xml Results Communicator Helper >-------------
-XmlDocument buildXmlText(vector<string> results)
-{
-	using sPtr = std::shared_ptr < AbstractXmlElement >;
-	XmlDocument xmlBody;
-	sPtr root = XmlElementFactory::makeTaggedElement("root");
-	xmlBody.addRootElement(root);
-	stack<sPtr> stack_;
-	stack_.push(root);
-	sPtr curr;
-	for (auto item : results)
-	{
-		string elem = "";
-		for (auto c : item)
-		{
-			if (c == '\\')
-			{
-				if (xmlBody.element(elem).select().size()!=0)
-				{
-					curr = xmlBody.element(elem).select()[0];
-				}
-				else
-				{
-					sPtr element = XmlElementFactory::makeTaggedElement(elem);
-					sPtr parent = stack_.top();
-					if (xmlBody.addChild(element, parent))
-					{
-						stack_.push(element);
-						curr = element;
-					}
-				}
-				elem = "";
-				continue;
-			}
-			elem += c;
-		}
-		sPtr filename = XmlElementFactory::makeTextElement(elem);
-		xmlBody.addChild(filename, curr);
-	}
-	return xmlBody;
-}
-
-//----------< File Search Xml Results Communicator Helper >-------------
-XmlDocument buildXmlFile(vector<string> results, IMessage* msg)
-{
-	using sPtr = std::shared_ptr < AbstractXmlElement >;
-	XmlDocument xmlBody;
-	sPtr root = XmlElementFactory::makeTaggedElement("root");
-	xmlBody.addRootElement(root);
-	stack<sPtr> stack_;
-	stack_.push(root);
-	sPtr curr;
-	for (auto item : results)
-	{
-		size_t pos = item.find(msg->getValue());
-		if (pos != string::npos)
-		{
-			string elem = "";
-			for (auto c : item)
-			{
-				if (c == '\\')
-				{
-					if (xmlBody.element(elem).select().size() != 0)
-					{
-						curr = xmlBody.element(elem).select()[0];
-					}
-					else
-					{
-						sPtr element = XmlElementFactory::makeTaggedElement(elem);
-						sPtr parent = stack_.top();
-						if (xmlBody.addChild(element, parent))
-						{
-							stack_.push(element);
-							curr = element;
-						}
-					}
-					elem = "";
-					continue;
-				}
-				elem += c;
-			}
-			sPtr filename = XmlElementFactory::makeTextElement(elem);
-			xmlBody.addChild(filename, curr);
-		}
-	}
-	return xmlBody;
-}
+////----------< File Upload Communicator >-------------
+//void fileUpload(IMessage *msg, Sender* send)
+//{
+//	string s = "\n  File " + msg->getValue() + " received successfully from ";
+//	s = s + msg->getSendIP() + " " + msg->getSendPort();
+//	s = s + "\n  Stored in Peer/DownloadDirectory";
+//	Verbose::show(s);
+//	IMessage *m = new Message();
+//	m->constructMessage("ack_file_upload", msg->getValue(), msg->getSendIP(), stoi(msg->getSendPort()), msg->getRecvIP(), stoi(msg->getRecvPort()));
+//	m->setBody("null");
+//	m->setTime(msg->getTime());
+//	send->postMessage(m);
+//}
+//
+////----------< File Download Communicator >-------------
+//void fileDownload(IMessage *msg, Sender *send)
+//{
+//	IMessage *m = new Message();
+//	m->constructMessage("file_upload", msg->getValue(), msg->getSendIP(), stoi(msg->getSendPort()), msg->getRecvIP(), stoi(msg->getRecvPort()));
+//	m->setBody("null");
+//	m->setTime("0");
+//	send->postMessage(m);
+//}
+//
+////----------< Send Directories Communicator >-------------
+//
+//void sendDirectories(IMessage *msg, Sender* send)
+//{
+//	using HighResolutionClock = chrono::high_resolution_clock;
+//	HighResolutionClock::time_point t1 = HighResolutionClock::now();
+//
+//	DataStore ds;
+//	FileMgr fm("Peer/Root", ds);
+//
+//	string body = "";
+//	fm.search(true);
+//	for (auto path : ds.getPaths())
+//	{
+//		body += "<dir>" + path;
+//		body += "@";
+//	}
+//	for (auto fs : ds)
+//	{
+//		std::string file = fs.first;
+//		std::cout << "\n  " << file;
+//		DataStore::PathCollection pc = ds.getPaths(file);
+//		for (auto path : pc)
+//		{
+//			body += path + "\\" + fs.first;
+//			body += "@";
+//		}
+//	}
+//	HighResolutionClock::time_point t2 = HighResolutionClock::now();
+//	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+//
+//	IMessage *m = new Message();
+//	m->constructMessage("ack_get_dir", msg->getValue(), msg->getSendIP(), stoi(msg->getSendPort()), msg->getRecvIP(), stoi(msg->getRecvPort()));
+//	m->setBody(body);
+//	m->setTime(to_string(duration));
+//	send->postMessage(m);
+//}
+//
+////----------< File Search Communicator >-------------
+//void searchFile(IMessage *msg, Sender *send)
+//{
+//	using HighResolutionClock = chrono::high_resolution_clock;
+//	HighResolutionClock::time_point t1 = HighResolutionClock::now();
+//	vector<string> results;
+//	Catalog cat("Peer/Root");
+//	string body = msg->getBody();
+//	string pattern = "";
+//	bool flag = false;
+//	for (unsigned int i = 0; i < body.size(); i++)
+//	{
+//		if (body[i] == '#')
+//		{
+//			flag = true;
+//			cat.addPattern(pattern);
+//			pattern = "";
+//			continue;
+//		}
+//		pattern += body[i];
+//	}
+//	if (flag == false)
+//		cat.addPattern(pattern);
+//	cat.buildCatalog(true);
+//	body = "";
+//	for (auto item : cat.getFiles())
+//	{
+//		size_t pos = item.find(msg->getValue());
+//		if (pos != string::npos)
+//		{
+//			body += item + "@";
+//		}
+//	}
+//	if (body == "")
+//		body = "No Results Found!@";
+//	HighResolutionClock::time_point t2 = HighResolutionClock::now();
+//	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+//	IMessage *m = new Message();
+//	m->constructMessage("ack_search_file", msg->getValue(), msg->getSendIP(), stoi(msg->getSendPort()), msg->getRecvIP(), stoi(msg->getRecvPort()));
+//	m->setBody(body);
+//	m->setTime(to_string(duration));
+//	send->postMessage(m);
+//}
+//
+////----------< File Search XML Results Communicator >-------------
+//void xmlSearchFile(IMessage *msg, Sender *send)
+//{
+//	using HighResolutionClock = chrono::high_resolution_clock;
+//	HighResolutionClock::time_point t1 = HighResolutionClock::now();
+//	vector<string> results;
+//	Catalog cat("Peer/Root");
+//	string body = msg->getBody();
+//	string pattern = "";
+//	bool flag = false;
+//	for (unsigned int i = 0; i < body.size(); i++)
+//	{
+//		if (body[i] == '#')
+//		{
+//			flag = true;
+//			cat.addPattern(pattern);
+//			pattern = "";
+//			continue;
+//		}
+//		pattern += body[i];
+//	}
+//	if (flag == false)
+//		cat.addPattern(pattern);
+//	cat.buildCatalog(true);
+//
+//	body = "";
+//	XmlDocument searchResult = buildXmlFile(cat.getFiles(), msg);
+//	
+//	searchResult.toFile("searchRes.xml");
+//
+//	HighResolutionClock::time_point t2 = HighResolutionClock::now();
+//	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+//
+//	IMessage *m = new Message();
+//	m->constructMessage("file_upload", "searchRes.xml", msg->getSendIP(), stoi(msg->getSendPort()), msg->getRecvIP(), stoi(msg->getRecvPort()));
+//	m->setBody(body);
+//	m->setTime(to_string(duration));
+//	send->postMessage(m);
+//}
+//
+////----------< Text Search Communicator >-------------
+//void searchText(IMessage *msg, Sender *send)
+//{
+//	using HighResolutionClock = chrono::high_resolution_clock;
+//	HighResolutionClock::time_point t1 = HighResolutionClock::now();
+//
+//	vector<string> results;
+//	Catalog cat("Peer/Root");
+//	string body = msg->getBody();
+//	string pattern = "";
+//	bool flag = false;
+//	for (unsigned int i = 0; i < body.size(); i++)
+//	{
+//		if (body[i] == '#')
+//		{
+//			flag = true;
+//			cat.addPattern(pattern);
+//			pattern = "";
+//			continue;
+//		}
+//		pattern += body[i];
+//
+//	}
+//	if (flag==false)
+//		cat.addPattern(pattern);
+//	cat.buildCatalog(true);
+//	results = cat.getSearchResults(msg->getValue());
+//	body = "";
+//	for (auto item : results)
+//	{
+//		body += item + "@";
+//	}
+//	if (body == "")
+//		body = "No Results Found!@";
+//
+//	HighResolutionClock::time_point t2 = HighResolutionClock::now();
+//	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+//
+//	IMessage *m = new Message();
+//	m->constructMessage("ack_search_text", msg->getValue(), msg->getSendIP(), stoi(msg->getSendPort()), msg->getRecvIP(), stoi(msg->getRecvPort()));
+//	m->setBody(body);
+//	m->setTime(to_string(duration));
+//	send->postMessage(m);
+//}
+//
+////----------< Text Search Xml Results Communicator >-------------
+//void xmlSearchText(IMessage *msg, Sender *send)
+//{
+//	using HighResolutionClock = chrono::high_resolution_clock;
+//	HighResolutionClock::time_point t1 = HighResolutionClock::now();
+//	vector<string> results;
+//	Catalog cat("Peer/Root");
+//	string body = msg->getBody();
+//	string pattern = "";
+//	bool flag = false;
+//	for (unsigned int i = 0; i < body.size(); i++)
+//	{
+//		if (body[i] == '#')
+//		{
+//			flag = true;
+//			cat.addPattern(pattern);
+//			pattern = "";
+//			continue;
+//		}
+//		pattern += body[i];
+//
+//	}
+//	if (flag == false)
+//		cat.addPattern(pattern);
+//	cat.buildCatalog(true);
+//	results = cat.getSearchResults(msg->getValue());
+//	body = "";
+//	XmlDocument xmlResult = buildXmlText(results);
+//	xmlResult.toFile("searchRes.xml");
+//	HighResolutionClock::time_point t2 = HighResolutionClock::now();
+//	auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count();
+//	IMessage *m = new Message();
+//	m->constructMessage("file_upload", "searchRes.xml", msg->getSendIP(), stoi(msg->getSendPort()), msg->getRecvIP(), stoi(msg->getRecvPort()));
+//	m->setBody(body);
+//	m->setTime(to_string(duration));
+//	send->postMessage(m);
+//}
+//
+////----------< Text Search Xml Results Communicator Helper >-------------
+//XmlDocument XmlSearchText::buildXmlText(vector<string> results)
+//{
+//	using sPtr = std::shared_ptr < AbstractXmlElement >;
+//	XmlDocument xmlBody;
+//	sPtr root = XmlElementFactory::makeTaggedElement("root");
+//	xmlBody.addRootElement(root);
+//	stack<sPtr> stack_;
+//	stack_.push(root);
+//	sPtr curr;
+//	for (auto item : results)
+//	{
+//		string elem = "";
+//		for (auto c : item)
+//		{
+//			if (c == '\\')
+//			{
+//				if (xmlBody.element(elem).select().size()!=0)
+//				{
+//					curr = xmlBody.element(elem).select()[0];
+//				}
+//				else
+//				{
+//					sPtr element = XmlElementFactory::makeTaggedElement(elem);
+//					sPtr parent = stack_.top();
+//					if (xmlBody.addChild(element, parent))
+//					{
+//						stack_.push(element);
+//						curr = element;
+//					}
+//				}
+//				elem = "";
+//				continue;
+//			}
+//			elem += c;
+//		}
+//		sPtr filename = XmlElementFactory::makeTextElement(elem);
+//		xmlBody.addChild(filename, curr);
+//	}
+//	return xmlBody;
+//}
+//
+////----------< File Search Xml Results Communicator Helper >-------------
+//XmlDocument XmlSearchFile::buildXmlFile(vector<string> results, IMessage* msg)
+//{
+//	using sPtr = std::shared_ptr < AbstractXmlElement >;
+//	XmlDocument xmlBody;
+//	sPtr root = XmlElementFactory::makeTaggedElement("root");
+//	xmlBody.addRootElement(root);
+//	stack<sPtr> stack_;
+//	stack_.push(root);
+//	sPtr curr;
+//	for (auto item : results)
+//	{
+//		size_t pos = item.find(msg->getValue());
+//		if (pos != string::npos)
+//		{
+//			string elem = "";
+//			for (auto c : item)
+//			{
+//				if (c == '\\')
+//				{
+//					if (xmlBody.element(elem).select().size() != 0)
+//					{
+//						curr = xmlBody.element(elem).select()[0];
+//					}
+//					else
+//					{
+//						sPtr element = XmlElementFactory::makeTaggedElement(elem);
+//						sPtr parent = stack_.top();
+//						if (xmlBody.addChild(element, parent))
+//						{
+//							stack_.push(element);
+//							curr = element;
+//						}
+//					}
+//					elem = "";
+//					continue;
+//				}
+//				elem += c;
+//			}
+//			sPtr filename = XmlElementFactory::makeTextElement(elem);
+//			xmlBody.addChild(filename, curr);
+//		}
+//	}
+//	return xmlBody;
+//}
 
 //----------< Test stub Dispatcher Package. >-------------
 #ifdef TEST_DISPATCHER

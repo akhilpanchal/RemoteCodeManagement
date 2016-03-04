@@ -55,12 +55,7 @@
 #include<functional>
 #include"Message.h"
 #include"Communication.h"
-#include"FileMgr.h"
-#include"DataStore.h"
-#include"Catalog.h"
-#include"XmlDocument.h"
-#include"IXmlElement.h"
-#include"XmlElementFactory.h"
+#include"RegisteredCommunicators.h"
 
 using namespace std;
 using namespace XmlProcessing;
@@ -76,20 +71,22 @@ public:
 	void setSender(Sender* send)	{ sender = send; }
 
 private:
-	std::map<string, ReqHandler> lookUp;
+//	std::map<string, ReqHandler> lookUp;
+	std::map<string, RegisteredCommunicator*> lookUp;
+
 	Sender *sender;
 	Receiver *recvr;
 };
 
-void fileUpload(IMessage *msg, Sender *send);
-void fileDownload(IMessage *msg, Sender *send);
-void sendDirectories(IMessage *msg, Sender *send);
-void searchFile(IMessage *msg, Sender *send);
-void searchText(IMessage *msg, Sender *send);
-void xmlSearchText(IMessage *msg, Sender *send);
-void xmlSearchFile(IMessage *msg, Sender *send);
-XmlDocument buildXmlText(vector<string> results);
-XmlDocument buildXmlFile(vector<string> results, IMessage* msg);
+//void fileUpload(IMessage *msg, Sender *send);
+//void fileDownload(IMessage *msg, Sender *send);
+//void sendDirectories(IMessage *msg, Sender *send);
+//void searchFile(IMessage *msg, Sender *send);
+//void searchText(IMessage *msg, Sender *send);
+//void xmlSearchText(IMessage *msg, Sender *send);
+//void xmlSearchFile(IMessage *msg, Sender *send);
+//XmlDocument buildXmlText(vector<string> results);
+//XmlDocument buildXmlFile(vector<string> results, IMessage* msg);
 
 
 #endif

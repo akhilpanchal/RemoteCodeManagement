@@ -288,7 +288,7 @@ void WPFCppCliDemo::getMessage()
 		if (pMessage_->getCommand() == "ack_get_dir")
 		{
 			getDirectories(pMessage_);
-			sMsg = "Directories and Files listed from: " + toSystemString(pMessage_->getSendIP() + " " + pMessage_->getSendPort());
+			sMsg = "Directories and Files listed from: " + toSystemString(pMessage_->getRecvIP() + " " + pMessage_->getRecvPort());
 		}
 		if (pMessage_->getCommand() == "ack_search_text" || pMessage_->getCommand() == "ack_search_file")
 		{
@@ -308,7 +308,7 @@ void WPFCppCliDemo::getMessage()
 		sMsg += ". Request Processing Time: " + toSystemString(pMessage_->getTime()) + " milliseconds!";
 		sMsg += ". End to End Processing Time: " + stopWatch->ElapsedMilliseconds.ToString() + " milliseconds!";
 
-		array<String^>^ args = gcnew array<String^>(1);
+		cli::array<String^>^ args = gcnew cli::array<String^>(1);
 		args[0] = sMsg;
 		Action<String^>^ act = gcnew Action<String^>(this, &WPFCppCliDemo::addText);
 		Dispatcher->Invoke(act, args);  // must call addText on main UI thread
@@ -545,10 +545,10 @@ void WPFCppCliDemo::browseForFolder(Object^ sender, RoutedEventArgs^ args)
   {
     String^ path = hFolderBrowserDialog->SelectedPath;
     std::cout << "\n  opening folder \"" << toStdString(path) << "\"";
-    array<String^>^ files = System::IO::Directory::GetFiles(path, L"*.*");
+    cli::array<String^>^ files = System::IO::Directory::GetFiles(path, L"*.*");
     for (int i = 0; i < files->Length; ++i)
       hListBox->Items->Add(files[i]);
-    array<String^>^ dirs = System::IO::Directory::GetDirectories(path);
+    cli::array<String^>^ dirs = System::IO::Directory::GetDirectories(path);
     for (int i = 0; i < dirs->Length; ++i)
       hListBox->Items->Add(L"<> " + dirs[i]);
   }
@@ -585,7 +585,7 @@ void WPFCppCliDemo::getDirectories(IMessage* imsg)
 {
 	string body = imsg->getBody();
 	std::string filename = "";
-	array<String^>^ args = gcnew array<String^>(1);
+	cli::array<String^>^ args = gcnew cli::array<String^>(1);
 	Action<String^>^ act = gcnew Action<String^>(this, &WPFCppCliDemo::showDirectory);
 	for (unsigned int i = 0; i < body.size(); i++)
 	{
@@ -760,7 +760,7 @@ void WPFCppCliDemo::getSearchResults(IMessage* imsg)
 {
 	string body = imsg->getBody();
 	std::string filename = "";
-	array<String^>^ args = gcnew array<String^>(1);
+	cli::array<String^>^ args = gcnew cli::array<String^>(1);
 	Action<String^>^ act = gcnew Action<String^>(this, &WPFCppCliDemo::showResult);
 	Dispatcher->Invoke(act, toSystemString(imsg->getSendIP() + " " + imsg->getSendPort()));  // must call addText on main UI thread
 	for (unsigned int i = 0; i < body.size(); i++)
@@ -779,7 +779,7 @@ void WPFCppCliDemo::getSearchResults(IMessage* imsg)
 void WPFCppCliDemo::getSearchResultsXml(IMessage* imsg)
 {
 	String^ filecontent = System::IO::File::ReadAllText("MockChannel/Root/DownloadDirectory/searchRes.xml");
-	array<String^>^ args = gcnew array<String^>(1);
+	cli::array<String^>^ args = gcnew cli::array<String^>(1);
 	Action<String^>^ act = gcnew Action<String^>(this, &WPFCppCliDemo::showResult);
 	Dispatcher->Invoke(act, toSystemString(imsg->getSendIP() + " " + imsg->getSendPort()));  // must call addText on main UI thread
 	Dispatcher->Invoke(act, filecontent);  // must call addText on main UI thread
@@ -805,7 +805,7 @@ void WPFCppCliDemo::Unloading(Object^ sender, System::ComponentModel::CancelEven
 
 [STAThread]
 //int _stdcall WinMain()
-int main(array<System::String^>^ args)
+int main(cli::array<System::String^>^ args)
 {
 	try{
 		Console::WriteLine(L"\n Starting WPFCppCliDemo");

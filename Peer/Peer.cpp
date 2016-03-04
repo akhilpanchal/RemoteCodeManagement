@@ -53,12 +53,6 @@ void Peer::start()
 	sender->startSending();
 }
 
-
-
-
-
-
-
 //----------< Enqueues a msg that terminates the send thread >-------------
 
 void Peer::stop()
